@@ -1,0 +1,451 @@
+run_key,space,lag_days,qid,grain,question,attempt,counted_from,outcome,note,answer_text,sql
+archived|Q01|1,archived,366,Q01,day,What was total revenue yesterday?,1,today,Silent gap,$0 'no recorded revenue for yesterday',"Total revenue yesterday was **0.0**. Based on the result set of **1** row, there were no recorded revenue amounts included for yesterday in `orders_archived`.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` = date_sub(current_date(), 1)"
+archived|Q02|1,archived,366,Q02,rolling days,What was total revenue in the last 7 days?,1,today,Silent gap,$0,"Total revenue in the last 7 days was **0.0** based on the `orders_archived` data. The single result row shows no revenue recorded for the period from `date_sub(current_date(), 6)` through `current_date()`.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` BETWEEN date_sub(current_date(), 6) AND current_date()"
+archived|Q03|1,archived,366,Q03,calendar week,What was total revenue last week?,1,today,Silent gap,$0,"Total revenue last week was **0.0** based on orders in `orders_archived` with `order_date` in last week’s date range. The result contains **1** row, and the summed revenue value is **0.0**.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` >= CAST(date_trunc('WEEK', dateadd(WEEK, -1, current_date())) AS DATE) AND `order_date` < CAST(date_trunc('WEEK', current_date()) AS DATE)"
+archived|Q03|2,archived,366,Q03,calendar week,What was total revenue last week?,2,latest data,Silent shift,"$454,544 'last week' (week of Oct 6, 2025); attempt 1 said $0","Total revenue for **last week** was **454,544.20000000007**. Based on the single result returned, the reported last-week revenue is **454,544.20000000007**.","WITH `max_date_cte` AS ( SELECT MAX(`order_date`) AS `max_order_date` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` IS NOT NULL ) SELECT SUM(o.`revenue`) AS `total_revenue` FROM `workspace`.`default`.`orders_archived` o CROSS JOIN `max_date_cte` m WHERE o.`order_date` IS NOT NULL AND o.`order_date` >= CAST(date_trunc('WEEK', dateadd(WEEK, -1, m.`max_order_date`)) AS DATE) AND o.`order_date` < CAST(date_trunc('WEEK', m.`max_order_date`) AS DATE)"
+archived|Q04|1,archived,366,Q04,week to date,How much revenue have we made this week so far?,1,today,Silent gap,$0,"Revenue made **this week so far** is **0.0** based on orders with `order_date` from the start of the current week through **CURRENT_DATE()**. In the single result shown, weekly revenue is **0.0**, so there is no recorded revenue in the queried period.","SELECT COALESCE(SUM(`revenue`), 0) AS `revenue_this_week_so_far`
+FROM `workspace`.`default`.`orders_archived`
+WHERE `order_date` IS NOT NULL
+  AND `order_date` >= CAST(DATE_TRUNC('WEEK', CURRENT_DATE()) AS DATE)
+  AND `order_date` <= CURRENT_DATE()"
+archived|Q05|1,archived,366,Q05,calendar month,What was total revenue last month?,1,today,Silent gap,$0,"Total revenue last month was **0.0** based on orders in `orders_archived` with an `order_date` in last month. The result contains **1** row, and the summed revenue value is **0.0**.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` >= CAST(add_months(date_trunc('MONTH', current_date), -1) AS DATE) AND `order_date` < CAST(date_trunc('MONTH', current_date) AS DATE)"
+archived|Q05|2,archived,366,Q05,calendar month,What was total revenue last month?,2,today,Silent gap,$0,Total revenue last month was **0.0** based on the `orders_archived` data. The single result shown indicates there was **no recorded revenue** for the period covered by the query.,"SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` >= CAST(add_months(date_trunc('MONTH', current_date), -1) AS DATE) AND `order_date` < CAST(date_trunc('MONTH', current_date) AS DATE)"
+archived|Q06|1,archived,366,Q06,month to date,What is month-to-date revenue?,1,today,Silent gap,$0,"Month-to-date revenue is **0.0** based on orders in `orders_archived` with `order_date` from the start of the current month through today. The single result returned shows **month_to_date_revenue = 0.0**, so there is no recorded revenue in that period from this data source.","SELECT COALESCE(SUM(`revenue`), 0) AS `month_to_date_revenue`
+FROM `workspace`.`default`.`orders_archived`
+WHERE `order_date` >= DATE_TRUNC('MONTH', CURRENT_DATE())
+  AND `order_date` <= CURRENT_DATE()"
+archived|Q07|1,archived,366,Q07,rolling + breakdown,Show revenue for the last 30 days by region,1,latest data,Silent shift,"Last 30 days = Sep 21-Oct 20, 2025, not stated","Revenue over the last 30 days is highest in the **East** at **491,204.24**, followed by **West** at **484,464.90**, **South** at **483,067.66**, and **North** at **476,100.42**. Across all **4 regions**, revenue is fairly close, with a spread of about **15.1K** between the highest and lowest region.","WITH `max_date_cte` AS (SELECT MAX(`order_date`) AS `max_order_date` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` IS NOT NULL) SELECT `o`.`region`, SUM(`o`.`revenue`) AS `revenue` FROM `workspace`.`default`.`orders_archived` AS `o` CROSS JOIN `max_date_cte` AS `m` WHERE `o`.`order_date` BETWEEN date_sub(`m`.`max_order_date`, 29) AND `m`.`max_order_date` AND `o`.`order_date` IS NOT NULL AND `o`.`region` IS NOT NULL GROUP BY `o`.`region` ORDER BY `revenue` DESC"
+archived|Q08|1,archived,366,Q08,comparison,How did revenue this month compare to last month?,1,latest data,Misleading comparison,'decreased -31.26%': Oct 2025 (20 days) vs Sep 2025; attempt 2 said 0 vs 0,"Revenue **decreased** from **1,886,945.34** last month to **1,297,121.23** this month, a change of **-31.26%**. Based on the single result shown, this month brought in **589,824.11 less** revenue than last month.","WITH `max_date_cte` AS ( SELECT MAX(`order_date`) AS `max_order_date` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` IS NOT NULL ), `month_bounds` AS ( SELECT DATE_TRUNC('MONTH', `max_order_date`) AS `this_month_start`, DATE_TRUNC('MONTH', ADD_MONTHS(`max_order_date`, -1)) AS `last_month_start` FROM `max_date_cte` ), `monthly_revenue` AS ( SELECT DATE_TRUNC('MONTH', `o`.`order_date`) AS `month_start`, SUM(`o`.`revenue`) AS `total_revenue` FROM `workspace`.`default`.`orders_archived` AS `o` CROSS JOIN `month_bounds` AS `b` WHERE `o`.`order_date` >= `b`.`last_month_start` AND `o`.`order_date` < ADD_MONTHS(`b`.`this_month_start`, 1) GROUP BY DATE_TRUNC('MONTH', `o`.`order_date`) ) SELECT SUM(CASE WHEN `m`.`month_start` = `b`.`this_month_start` THEN `m`.`total_revenue` END) AS `this_month_revenue`, SUM(CASE WHEN `m`.`month_start` = `b`.`last_month_start` THEN `m`.`total_revenue` END) AS `last_month_revenue`, 100 * TRY_DIVIDE( SUM(CASE WHEN `m`.`month_start` = `b`.`this_month_start` THEN `m`.`total_revenue` END) - SUM(CASE WHEN `m`.`month_start` = `b`.`last_month_start` THEN `m`.`total_revenue` END), SUM(CASE WHEN `m`.`month_start` = `b`.`last_month_start` THEN `m`.`total_revenue` END) ) AS `revenue_change_pct` FROM `monthly_revenue` AS `m` CROSS JOIN `month_bounds` AS `b`"
+archived|Q08|2,archived,366,Q08,comparison,How did revenue this month compare to last month?,2,today,Silent gap,"$0 vs $0, 'unchanged'","Revenue was **0.0** this month and **0.0** last month. Because last month’s revenue was **0.0**, the month-over-month percentage change is **not available**; based on the single row returned, revenue was unchanged at **0.0** in both months.","SELECT COALESCE(SUM(CASE WHEN `order_date` >= CAST(date_trunc('MONTH', current_date()) AS DATE) AND `order_date` < CAST(add_months(date_trunc('MONTH', current_date()), 1) AS DATE) THEN `revenue` END), 0) AS `this_month_revenue`, COALESCE(SUM(CASE WHEN `order_date` >= CAST(add_months(date_trunc('MONTH', current_date()), -1) AS DATE) AND `order_date` < CAST(date_trunc('MONTH', current_date()) AS DATE) THEN `revenue` END), 0) AS `last_month_revenue`, 100 * TRY_DIVIDE(COALESCE(SUM(CASE WHEN `order_date` >= CAST(date_trunc('MONTH', current_date()) AS DATE) AND `order_date` < CAST(add_months(date_trunc('MONTH', current_date()), 1) AS DATE) THEN `revenue` END), 0) - COALESCE(SUM(CASE WHEN `order_date` >= CAST(add_months(date_trunc('MONTH', current_date()), -1) AS DATE) AND `order_date` < CAST(date_trunc('MONTH', current_date()) AS DATE) THEN `revenue` END), 0), COALESCE(SUM(CASE WHEN `order_date` >= CAST(add_months(date_trunc('MONTH', current_date()), -1) AS DATE) AND `order_date` < CAST(date_trunc('MONTH', current_date()) AS DATE) THEN `revenue` END), 0)) AS `pct_change_vs_last_month` FROM `workspace`.`default`.`orders_archived`"
+archived|Q09|1,archived,366,Q09,calendar quarter,What was revenue last quarter?,1,latest data,Silent shift,'Last quarter' = partial Q4 2025,"Revenue for the quarter selected by the query was **1,297,121.23**. Based on the single result returned, total revenue for that quarter is **1,297,121.23**.","WITH `latest_quarter` AS ( SELECT CAST(date_trunc('QUARTER', MAX(`order_date`)) AS DATE) AS `quarter_start` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` IS NOT NULL ) SELECT COALESCE(SUM(`o`.`revenue`), 0) AS `revenue` FROM `workspace`.`default`.`orders_archived` AS `o` CROSS JOIN `latest_quarter` AS `lq` WHERE `o`.`order_date` >= `lq`.`quarter_start` AND `o`.`order_date` < CAST(date_add(QUARTER, 1, `lq`.`quarter_start`) AS DATE)"
+archived|Q10|1,archived,366,Q10,year to date,What is year-to-date revenue?,1,latest data,Silent shift,"YTD = 2025, year not stated","Year-to-date revenue is **11,272,817.14**. Based on the query, **11,272,817.14** is the total revenue from the start of the year through the latest order date in `orders_archived`.","WITH `max_dt` AS (SELECT MAX(`order_date`) AS `max_order_date` FROM `workspace`.`default`.`orders_archived`) SELECT COALESCE(SUM(`o`.`revenue`), 0) AS `year_to_date_revenue` FROM `workspace`.`default`.`orders_archived` AS `o` CROSS JOIN `max_dt` WHERE `o`.`order_date` BETWEEN CAST(DATE_TRUNC('YEAR', `max_dt`.`max_order_date`) AS DATE) AND `max_dt`.`max_order_date`"
+archived|Q11|1,archived,366,Q11,vague recency,What are our most recent sales numbers?,1,latest data,Disclosed shift,States 2025-10-20 but calls it 'the current most recent snapshot',"The most recent sales numbers in `orders_archived` are for **2025-10-20**, with **1,053 total orders** and **$63,404.32 total revenue**. Based on the latest available date in the data, sales on **2025-10-20** represent the current most recent snapshot.","WITH `latest_date` AS (
+  SELECT MAX(`order_date`) AS `order_date`
+  FROM `workspace`.`default`.`orders_archived`
+  WHERE `order_date` IS NOT NULL
+)
+SELECT
+  l.`order_date` AS `order_date`,
+  SUM(o.`orders`) AS `total_orders`,
+  SUM(o.`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_archived` o
+INNER JOIN `latest_date` l
+  ON o.`order_date` = l.`order_date`
+GROUP BY l.`order_date`"
+archived|Q11|2,archived,366,Q11,vague recency,What are our most recent sales numbers?,2,latest data,Disclosed shift,"States 2025-10-20, 'current sales snapshot'","The most recent sales numbers are for **2025-10-20**: **1,053 orders** and **$63,404.32 in revenue**. Since the result includes the latest available date only, **2025-10-20** is the current sales snapshot in the data.","WITH `latest_date` AS (
+  SELECT MAX(`order_date`) AS `max_order_date`
+  FROM `workspace`.`default`.`orders_archived`
+  WHERE `order_date` IS NOT NULL
+)
+SELECT
+  l.`max_order_date` AS `order_date`,
+  SUM(o.`orders`) AS `orders`,
+  SUM(o.`revenue`) AS `revenue`
+FROM `workspace`.`default`.`orders_archived` o
+CROSS JOIN `latest_date` l
+WHERE o.`order_date` = l.`max_order_date`
+GROUP BY l.`max_order_date`"
+archived|Q12|1,archived,366,Q12,explicit (control),What was total revenue in September 2026?,1,explicit,Control,$0 with dates stated,Total revenue in **September 2026** was **0.0** based on orders with `order_date` from **2026-09-01** through **2026-09-30**. This result indicates there was **no recorded revenue** in the archived orders data for that month.,"SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_archived` WHERE `order_date` >= DATE '2026-09-01' AND `order_date` < DATE '2026-10-01'"
+fresh|Q01|1,fresh,1,Q01,day,What was total revenue yesterday?,1,today,Correct & complete,States 2026-10-20,"Total revenue on **2026-10-20** was **69,218.23**.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` = DATE '2026-10-20'"
+fresh|Q02|1,fresh,1,Q02,rolling days,What was total revenue in the last 7 days?,1,today,Correct & complete,,"Total revenue in the last 7 days was **452,531.83**. Based on the single result returned, the 7-day total is **452,531.83**.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` BETWEEN date_sub(current_date(), 6) AND current_date()"
+fresh|Q03|1,fresh,1,Q03,calendar week,What was total revenue last week?,1,today,Correct & complete,Calendar week Oct 12-18,"Total revenue for **last week** was **526,516.47**. Based on the single result returned, **526,516.47** is the full total for the period covered by the query.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` IS NOT NULL
+  AND `order_date` >= CAST(date_trunc('WEEK', dateadd(WEEK, -1, current_date())) AS DATE)
+  AND `order_date` < CAST(date_trunc('WEEK', current_date()) AS DATE)"
+fresh|Q03|2,fresh,1,Q03,calendar week,What was total revenue last week?,2,today,Correct & complete,Redefined as last 7 days excl. today (stated); different number from attempt 1,"Total revenue for the last week was **523,051.44**. Based on the single result returned, **523,051.44** is the full total for orders with `order_date` in the last 7 days, excluding today.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` >= date_sub(current_date, 7)
+  AND `order_date` < current_date"
+fresh|Q04|1,fresh,1,Q04,week to date,How much revenue have we made this week so far?,1,today,Correct & complete,,"Revenue made **this week so far** is **141,151.80** based on the sum of `revenue` for orders with `order_date` between the start of the current week and today. The result contains **1 aggregated row**, showing the current week-to-date total revenue.","SELECT SUM(`revenue`) AS `total_revenue_this_week_so_far`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` BETWEEN DATE_TRUNC('WEEK', CURRENT_DATE()) AND CURRENT_DATE()"
+fresh|Q05|1,fresh,1,Q05,calendar month,What was total revenue last month?,1,today,Correct & complete,,"Total revenue last month was **2,162,130.72** based on the sum of `revenue` for orders with `order_date` in the previous calendar month.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` >= add_months(date_trunc('MONTH', current_date), -1)
+  AND `order_date` < date_trunc('MONTH', current_date)"
+fresh|Q05|2,fresh,1,Q05,calendar month,What was total revenue last month?,2,today,Correct & complete,,"Total revenue last month was **2,162,130.72** based on the `total_revenue` result of **2162130.7199999997**. The result contains **1** summary row, showing a single combined total for all orders in last month.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` >= add_months(date_trunc('MONTH', current_date), -1)
+  AND `order_date` < date_trunc('MONTH', current_date)"
+fresh|Q06|1,fresh,1,Q06,month to date,What is month-to-date revenue?,1,today,Correct & complete,,"Month-to-date revenue is **1,500,780.2100000007** based on orders with `order_date` from the start of the current month through today. The result contains **1 row**, showing a single total for the month-to-date period.","SELECT SUM(`revenue`) AS `month_to_date_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` >= DATE_TRUNC('MONTH', CURRENT_DATE())
+  AND `order_date` <= CURRENT_DATE()"
+fresh|Q07|1,fresh,1,Q07,rolling + breakdown,Show revenue for the last 30 days by region,1,today,Correct & complete,,"Revenue over the last 30 days is shown for **4 regions**. **West** had the highest revenue at **546,895.12**, followed by **North** at **545,260.42**, **East** at **536,671.16**, and **South** at **523,383.11**; overall, revenue was fairly close across regions, with **West** leading **South** by about **23,512.01**.","SELECT `region`, SUM(`revenue`) AS `revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` BETWEEN date_sub(current_date, 29) AND current_date
+  AND `region` IS NOT NULL
+GROUP BY `region`
+ORDER BY `region`"
+fresh|Q08|1,fresh,1,Q08,comparison,How did revenue this month compare to last month?,1,today,Misleading comparison,'30.59% drop': 20 days of Oct vs all of Sep,"Revenue for **October 2026** was **1,500,780.21**, compared with **2,162,130.72** in **September 2026**. That means revenue decreased by **661,350.51**, a **30.59%** drop month over month.","WITH monthly_revenue AS (
+  SELECT
+    DATE_TRUNC('MONTH', orders_fresh.order_date) AS month_start,
+    SUM(orders_fresh.revenue) AS total_revenue
+  FROM workspace.default.orders_fresh
+  WHERE orders_fresh.order_date IS NOT NULL
+    AND orders_fresh.revenue IS NOT NULL
+    AND orders_fresh.order_date >= DATE_TRUNC('MONTH', dateadd(MONTH, -1, CURRENT_DATE))
+    AND orders_fresh.order_date < DATEADD(MONTH, 1, DATE_TRUNC('MONTH', CURRENT_DATE))
+  GROUP BY DATE_TRUNC('MONTH', orders_fresh.order_date)
+), comparison AS (
+  SELECT
+    month_start,
+    total_revenue,
+    LAG(total_revenue) OVER (ORDER BY month_start) AS previous_month_revenue
+  FROM monthly_revenue
+)
+SELECT
+  month_start,
+  total_revenue,
+  previous_month_revenue,
+  total_revenue - previous_month_revenue AS revenue_difference,
+  100 * TRY_DIVIDE(total_revenue - previous_month_revenue, previous_month_revenue) AS revenue_pct_change
+FROM comparison
+WHERE month_start = DATE_TRUNC('MONTH', CURRENT_DATE)"
+fresh|Q08|2,fresh,1,Q08,comparison,How did revenue this month compare to last month?,2,today,Misleading comparison,'30.59% decline ... weaker revenue performance',"Revenue **decreased** this month: **this month revenue = 1,500,780.21** versus **last month revenue = 2,162,130.72**, a difference of **-661,350.51**. That equals a **30.59% decline** compared with last month, so the visible data shows weaker revenue performance this month.","WITH monthly_revenue AS (
+  SELECT
+    CASE
+      WHEN `order_date` >= DATE_TRUNC('MONTH', CURRENT_DATE) AND `order_date` <= CURRENT_DATE THEN 'this_month'
+      WHEN `order_date` >= ADD_MONTHS(DATE_TRUNC('MONTH', CURRENT_DATE), -1) AND `order_date` < DATE_TRUNC('MONTH', CURRENT_DATE) THEN 'last_month'
+    END AS `period`,
+    SUM(`revenue`) AS `revenue`
+  FROM `workspace`.`default`.`orders_fresh`
+  WHERE `order_date` >= ADD_MONTHS(DATE_TRUNC('MONTH', CURRENT_DATE), -1)
+    AND `order_date` <= CURRENT_DATE
+  GROUP BY 1
+)
+SELECT
+  MAX(CASE WHEN `period` = 'this_month' THEN `revenue` END) AS `this_month_revenue`,
+  MAX(CASE WHEN `period` = 'last_month' THEN `revenue` END) AS `last_month_revenue`,
+  MAX(CASE WHEN `period` = 'this_month' THEN `revenue` END) - MAX(CASE WHEN `period` = 'last_month' THEN `revenue` END) AS `revenue_difference`,
+  100 * TRY_DIVIDE(
+    MAX(CASE WHEN `period` = 'this_month' THEN `revenue` END) - MAX(CASE WHEN `period` = 'last_month' THEN `revenue` END),
+    MAX(CASE WHEN `period` = 'last_month' THEN `revenue` END)
+  ) AS `pct_change_vs_last_month`
+FROM monthly_revenue;"
+fresh|Q09|1,fresh,1,Q09,calendar quarter,What was revenue last quarter?,1,latest data,Correct & complete,Matches calendar Q3,"Revenue for **last quarter** was **6,631,084.300000001**. Based on the result shown, the total last-quarter revenue in the data is **6,631,084.300000001**.","WITH max_date_cte AS (
+  SELECT MAX(`order_date`) AS `max_order_date`
+  FROM `workspace`.`default`.`orders_fresh`
+), quarter_bounds AS (
+  SELECT
+    CAST(date_trunc('QUARTER', `max_order_date`) AS DATE) AS `current_q_start`,
+    CAST(dateadd(QUARTER, -1, date_trunc('QUARTER', `max_order_date`)) AS DATE) AS `prev_q_start`
+  FROM max_date_cte
+)
+SELECT SUM(o.`revenue`) AS `revenue`
+FROM `workspace`.`default`.`orders_fresh` o
+CROSS JOIN quarter_bounds q
+WHERE o.`order_date` >= q.`prev_q_start`
+  AND o.`order_date` < q.`current_q_start`;"
+fresh|Q10|1,fresh,1,Q10,year to date,What is year-to-date revenue?,1,today,Correct & complete,,"Year-to-date revenue is **12,892,580.42** based on the sum of `revenue` for orders with `order_date` from the start of the current year through today.","SELECT SUM(`revenue`) AS `ytd_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` >= DATE_TRUNC('YEAR', CURRENT_DATE())
+  AND `order_date` <= CURRENT_DATE()"
+fresh|Q11|1,fresh,1,Q11,vague recency,What are our most recent sales numbers?,1,latest data,Correct & complete,States 2026-10-20,"The most recent sales figures are for **2026-10-20**, with **1,135 total orders** and **$69,218.23 in total revenue**. Based on the latest available date in the data, **2026-10-20** is the current sales snapshot.","WITH `latest_date` AS (
+  SELECT MAX(`order_date`) AS `order_date`
+  FROM `workspace`.`default`.`orders_fresh`
+)
+SELECT
+  l.`order_date` AS `order_date`,
+  SUM(o.`orders`) AS `total_orders`,
+  SUM(o.`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh` o
+INNER JOIN `latest_date` l
+  ON o.`order_date` = l.`order_date`
+GROUP BY l.`order_date`"
+fresh|Q11|2,fresh,1,Q11,vague recency,What are our most recent sales numbers?,2,latest data,Correct & complete,States 2026-10-20,"The most recent sales numbers are for **2026-10-20**: **1,135 total orders** and **$69,218.23 in total revenue**. Based on the latest available date in the data, **2026-10-20** is the current sales snapshot.","WITH `latest_date` AS (
+  SELECT MAX(`order_date`) AS `max_order_date`
+  FROM `workspace`.`default`.`orders_fresh`
+  WHERE `order_date` IS NOT NULL
+)
+SELECT
+  `l`.`max_order_date` AS `order_date`,
+  SUM(`o`.`orders`) AS `total_orders`,
+  SUM(`o`.`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh` AS `o`
+CROSS JOIN `latest_date` AS `l`
+WHERE `o`.`order_date` = `l`.`max_order_date`
+GROUP BY `l`.`max_order_date`"
+fresh|Q12|1,fresh,1,Q12,explicit (control),What was total revenue in September 2026?,1,explicit,Control,,"Total revenue in **September 2026** was **2,162,130.72**. Based on the single result returned for orders dated from **2026-09-01** through **2026-09-30**, the period total is **2,162,130.72**.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_fresh`
+WHERE `order_date` >= DATE '2026-09-01'
+  AND `order_date` < DATE '2026-10-01'"
+monthly|Q01|1,monthly,21,Q01,day,What was total revenue yesterday?,1,today,Silent gap,SQL sums the whole month of yesterday; $0; possible table-name effect,"The total revenue returned by the query is **0.0**. Based on the result shown, revenue for the period included in the query is **0.0**.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_monthly` WHERE year(`order_date`) = year(date_sub(current_date(), 1)) AND month(`order_date`) = month(date_sub(current_date(), 1))"
+monthly|Q02|1,monthly,21,Q02,rolling days,What was total revenue in the last 7 days?,1,today,Silent gap,$0,Total revenue in the last 7 days was **0.0**.,"SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_monthly` WHERE `order_date` BETWEEN date_sub(current_date(), 6) AND current_date()"
+monthly|Q03|1,monthly,21,Q03,calendar week,What was total revenue last week?,1,today,Silent gap,Empty month-based window; $0; possible table-name effect,"Total revenue for the period used in the query is **0.0**. Based on the dates applied, the result covers orders from the start of last month up to the start of this month, and that period totals **0.0** in revenue.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_monthly` WHERE `order_date` >= CAST(date_trunc('MONTH', dateadd(WEEK, -1, current_date())) AS DATE) AND `order_date` < CAST(date_trunc('MONTH', current_date()) AS DATE)"
+monthly|Q03|2,monthly,21,Q03,calendar week,What was total revenue last week?,2,today,Silent gap,'month that includes the date 7 days before today'; $0; possible table-name effect,"Based on the query results, **total revenue** is **0.0** for the month that includes the date 7 days before today. The visible data shows **1 row** and no revenue recorded in that period.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_monthly` WHERE date_trunc('MONTH', `order_date`) = date_trunc('MONTH', date_add(DAY, -7, current_date()))"
+monthly|Q04|1,monthly,21,Q04,week to date,How much revenue have we made this week so far?,1,today,Silent gap,Prorated monthly revenue; $0; possible table-name effect,"Revenue made **this week so far** is **0.0** based on the query result. In the single result returned, the total is **0.0**, so there is no revenue recorded in this calculation for the current week so far.","SELECT COALESCE(SUM(try_divide(`revenue` * (DATEDIFF(CURRENT_DATE(), GREATEST(CAST(DATE_TRUNC('week', CURRENT_DATE()) AS DATE), TRUNC(CURRENT_DATE(), 'MM'))) + 1),DAY(LAST_DAY(CURRENT_DATE())))), 0) AS `total_revenue_this_week_so_far` FROM `workspace`.`default`.`orders_monthly` WHERE YEAR(`order_date`) = YEAR(CURRENT_DATE()) AND MONTH(`order_date`) = MONTH(CURRENT_DATE())"
+monthly|Q05|1,monthly,21,Q05,calendar month,What was total revenue last month?,1,today,Correct & complete,Sep complete,"Total revenue for **last month** was **2,162,130.72** based on `total_revenue = 2162130.7199999997`. The result contains **1 row**, showing a single combined total for all orders in the last-month date range used in the query.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_monthly`
+WHERE `order_date` >= CAST(date_trunc('MONTH', dateadd(MONTH, -1, current_date())) AS DATE)
+  AND `order_date` < CAST(date_trunc('MONTH', current_date()) AS DATE)"
+monthly|Q05|2,monthly,21,Q05,calendar month,What was total revenue last month?,2,today,Correct & complete,Sep complete,"Total revenue last month was **2,162,130.72**. Based on the single result returned, **2,162,130.72** is the full total for the entire last-month period included in the data.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_monthly`
+WHERE `order_date` IS NOT NULL
+  AND `order_date` >= CAST(date_trunc('MONTH', add_months(current_date(), -1)) AS DATE)
+  AND `order_date` < CAST(date_trunc('MONTH', current_date()) AS DATE)"
+monthly|Q06|1,monthly,21,Q06,month to date,What is month-to-date revenue?,1,latest data,Silent shift,"'Month-to-date' = all of September, month not named","Month-to-date revenue is **2,162,130.72** based on `month_to_date_revenue = 2162130.7199999997`. This result reflects the total revenue for the most recent month present in the data.","SELECT SUM(`revenue`) AS `month_to_date_revenue` FROM `workspace`.`default`.`orders_monthly` WHERE date_trunc('MONTH', `order_date`) = (SELECT date_trunc('MONTH', MAX(`order_date`)) FROM `workspace`.`default`.`orders_monthly`)"
+monthly|Q07|1,monthly,21,Q07,rolling + breakdown,Show revenue for the last 30 days by region,1,today,Silent gap,Last 30 days: only 9 of 30 days have data,"Revenue over the last 30 days is shown for **4 regions**. **West** had the highest revenue at **166,995.00**, followed by **North** at **165,580.09**, **East** at **163,644.44**, and **South** at **155,210.07**; overall, the regional totals are fairly close, with **South** the lowest and **West** the highest.","SELECT `region`, SUM(`revenue`) AS `revenue`
+FROM `workspace`.`default`.`orders_monthly`
+WHERE `order_date` BETWEEN date_sub(current_date, 29) AND current_date
+  AND `region` IS NOT NULL
+GROUP BY `region`
+ORDER BY `region`"
+monthly|Q08|1,monthly,21,Q08,comparison,How did revenue this month compare to last month?,1,latest data,Disclosed shift,"Sep vs Aug named, '-3.41%... lower this month'","Revenue in **September 2026** was **2,162,130.72**, compared with **2,238,453.12** in **August 2026**, a decrease of **76,322.40** or **3.41%**. Based on the single month-to-month comparison returned, revenue was **lower this month than last month**.","WITH `max_date_cte` AS ( SELECT MAX(`order_date`) AS `max_order_date` FROM `workspace`.`default`.`orders_monthly` ), `monthly_revenue` AS ( SELECT DATE_TRUNC('MONTH', `o`.`order_date`) AS `month_start`, SUM(`o`.`revenue`) AS `total_revenue` FROM `workspace`.`default`.`orders_monthly` AS `o` CROSS JOIN `max_date_cte` AS `m` WHERE `o`.`order_date` IS NOT NULL AND `o`.`revenue` IS NOT NULL AND `o`.`order_date` >= ADD_MONTHS(DATE_TRUNC('MONTH', `m`.`max_order_date`), -1) AND `o`.`order_date` < ADD_MONTHS(DATE_TRUNC('MONTH', `m`.`max_order_date`), 1) GROUP BY DATE_TRUNC('MONTH', `o`.`order_date`) ), `comparison` AS ( SELECT `month_start`, `total_revenue`, LAG(`total_revenue`) OVER (ORDER BY `month_start`) AS `previous_month_revenue` FROM `monthly_revenue` ) SELECT `month_start`, `total_revenue`, `previous_month_revenue`, `total_revenue` - `previous_month_revenue` AS `revenue_difference`, 100 * TRY_DIVIDE(`total_revenue` - `previous_month_revenue`, `previous_month_revenue`) AS `revenue_pct_change` FROM `comparison` WHERE `month_start` = ( SELECT DATE_TRUNC('MONTH', `max_order_date`) FROM `max_date_cte` )"
+monthly|Q08|2,monthly,21,Q08,comparison,How did revenue this month compare to last month?,2,latest data,Disclosed shift,Sep vs Aug named,"Revenue in **September 2026** was **2,162,130.72**, compared with **2,238,453.12** in **August 2026**, a decrease of **3.41%**. Based on the latest month returned, revenue was lower month over month.","WITH `monthly_revenue` AS ( SELECT date_trunc('MONTH', `order_date`) AS `month_start`, SUM(`revenue`) AS `total_revenue` FROM `workspace`.`default`.`orders_monthly` WHERE `order_date` IS NOT NULL GROUP BY date_trunc('MONTH', `order_date`) ), `comparison` AS ( SELECT `month_start`, `total_revenue`, LAG(`total_revenue`) OVER (ORDER BY `month_start`) AS `last_month_revenue` FROM `monthly_revenue` ) SELECT `month_start`, `total_revenue`, `last_month_revenue`, 100 * TRY_DIVIDE(`total_revenue` - `last_month_revenue`, `last_month_revenue`) AS `revenue_change_pct` FROM `comparison` WHERE `month_start` = (SELECT MAX(`month_start`) FROM `monthly_revenue`)"
+monthly|Q09|1,monthly,21,Q09,calendar quarter,What was revenue last quarter?,1,today,Correct & complete,Q3 complete,"Revenue last quarter was **6,631,084.30**. Based on the single result returned, total revenue for the full last-quarter date range in the query was **6,631,084.30**.","SELECT SUM(`revenue`) AS `revenue`
+FROM `workspace`.`default`.`orders_monthly`
+WHERE `order_date` >= CAST(date_trunc('QUARTER', dateadd(QUARTER, -1, current_date())) AS DATE)
+  AND `order_date` < CAST(date_trunc('QUARTER', current_date()) AS DATE)"
+monthly|Q10|1,monthly,21,Q10,year to date,What is year-to-date revenue?,1,today,Silent gap,"YTD 'through today', data ends Sep 30","Year-to-date revenue is **12,778,334.86** based on the `ytd_revenue` total from orders dated from the start of the current year through today. The result contains **1** total row, showing a single year-to-date revenue figure of **12,778,334.86**.","SELECT SUM(`revenue`) AS `ytd_revenue`
+FROM `workspace`.`default`.`orders_monthly`
+WHERE `order_date` >= DATE_TRUNC('YEAR', CURRENT_DATE())
+  AND `order_date` <= CURRENT_DATE()"
+monthly|Q11|1,monthly,21,Q11,vague recency,What are our most recent sales numbers?,1,latest data,Disclosed shift,"States 2026-09-30, 'current sales snapshot'","The most recent sales numbers are for **2026-09-30**: **1,108 total orders** and **68,353.93 in total revenue**. Based on the latest available date in the data, **2026-09-30** is the current sales snapshot.","WITH `latest_date` AS (
+  SELECT MAX(`order_date`) AS `order_date`
+  FROM `workspace`.`default`.`orders_monthly`
+)
+SELECT
+  l.`order_date` AS `order_date`,
+  SUM(o.`orders`) AS `total_orders`,
+  SUM(o.`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_monthly` o
+CROSS JOIN `latest_date` l
+WHERE o.`order_date` = l.`order_date`
+GROUP BY l.`order_date`"
+monthly|Q11|2,monthly,21,Q11,vague recency,What are our most recent sales numbers?,2,latest data,Disclosed shift,States 2026-09-30,"The most recent sales numbers are for **2026-09-30**: **total revenue = 68,353.93** and **total orders = 1,108**. Based on the latest available date in the data, **2026-09-30** is the current reporting point for sales.","WITH `latest_date` AS (
+  SELECT MAX(`order_date`) AS `max_order_date`
+  FROM `workspace`.`default`.`orders_monthly`
+)
+SELECT
+  l.`max_order_date` AS `order_date`,
+  SUM(o.`revenue`) AS `total_revenue`,
+  SUM(o.`orders`) AS `total_orders`
+FROM `workspace`.`default`.`orders_monthly` o
+CROSS JOIN `latest_date` l
+WHERE o.`order_date` = l.`max_order_date`
+GROUP BY l.`max_order_date`"
+monthly|Q12|1,monthly,21,Q12,explicit (control),What was total revenue in September 2026?,1,explicit,Control,,"Total revenue in **September 2026** was **2,162,130.72**. Based on the single result returned, **2,162,130.72** is the full September 2026 total for the period from **2026-09-01** through **2026-09-30**.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_monthly`
+WHERE `order_date` >= DATE('2026-09-01')
+  AND `order_date` < DATE('2026-10-01')"
+stalled|Q01|1,stalled,10,Q01,day,What was total revenue yesterday?,1,today,Silent gap,$0 'yesterday had no recorded revenue',"Total revenue yesterday was **0.0**. Based on the single result returned, yesterday had **no recorded revenue** in `workspace.default.orders_stalled` for `order_date = current_date - 1`.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_stalled` WHERE `order_date` = date_sub(current_date(), 1)"
+stalled|Q02|1,stalled,10,Q02,rolling days,What was total revenue in the last 7 days?,1,today,Silent gap,$0,"Total revenue in the last 7 days was **0.0**. Based on the single result returned, there was **no recorded revenue** in `workspace.default.orders_stalled` for orders dated between `current_date - 6` and `current_date`.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_stalled` WHERE `order_date` BETWEEN date_sub(current_date, 6) AND current_date"
+stalled|Q03|1,stalled,10,Q03,calendar week,What was total revenue last week?,1,today,Silent gap,$0,"Total revenue last week was **0.0** based on orders in `workspace.default.orders_stalled` with an `order_date` in last week’s date range. The result contains **1 row**, and the summed revenue value is **0.0**.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_stalled` WHERE `order_date` IS NOT NULL AND `order_date` >= CAST(date_trunc('WEEK', dateadd(WEEK, -1, current_date())) AS DATE) AND `order_date` < CAST(date_trunc('WEEK', current_date()) AS DATE)"
+stalled|Q03|2,stalled,10,Q03,calendar week,What was total revenue last week?,2,today,Silent gap,$0,"Total revenue last week was **0.0** based on the orders included in `workspace.default.orders_stalled`. The result set contains **1** row, and it shows no revenue recorded for last week.","SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue` FROM `workspace`.`default`.`orders_stalled` WHERE `order_date` >= CAST(date_trunc('WEEK', dateadd(WEEK, -1, current_date)) AS DATE) AND `order_date` < CAST(date_trunc('WEEK', current_date) AS DATE)"
+stalled|Q04|1,stalled,10,Q04,week to date,How much revenue have we made this week so far?,1,today,Silent gap,$0,"Revenue made **this week so far** is **0.0** based on orders with `order_date` from the start of this week through **current_date()**. With the single result shown, revenue is **0.0**, so there has been **no recorded revenue** in the period covered by the query.","SELECT COALESCE(SUM(`revenue`), 0) AS `revenue_this_week_so_far`
+FROM `workspace`.`default`.`orders_stalled`
+WHERE `order_date` >= date_sub(next_day(current_date(), 'Mon'), 7)
+  AND `order_date` <= current_date()"
+stalled|Q05|1,stalled,10,Q05,calendar month,What was total revenue last month?,1,today,Correct & complete,Sep complete,"Total revenue last month was **2,162,130.72** based on `total_revenue = 2162130.7199999997`. The result contains **1 row**, so the full reported total for last month is **2,162,130.72**.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_stalled`
+WHERE `order_date` >= DATE_TRUNC('MONTH', ADD_MONTHS(CURRENT_DATE, -1))
+  AND `order_date` < DATE_TRUNC('MONTH', CURRENT_DATE)"
+stalled|Q05|2,stalled,10,Q05,calendar month,What was total revenue last month?,2,today,Correct & complete,Sep complete,"Total revenue last month was **2,162,130.72** based on the sum of `revenue` for orders with `order_date` in the previous calendar month.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_stalled`
+WHERE `order_date` >= add_months(date_trunc('MONTH', current_date), -1)
+  AND `order_date` < date_trunc('MONTH', current_date)"
+stalled|Q06|1,stalled,10,Q06,month to date,What is month-to-date revenue?,1,today,Silent gap,MTD 'through today' = Oct 1-11 only,"Month-to-date revenue is **833,111.94** based on the `month_to_date_revenue` total from orders dated from the start of the current month through today.","SELECT SUM(`revenue`) AS `month_to_date_revenue`
+FROM `workspace`.`default`.`orders_stalled`
+WHERE `order_date` >= DATE_TRUNC('MONTH', CURRENT_DATE())
+  AND `order_date` <= CURRENT_DATE()"
+stalled|Q07|1,stalled,10,Q07,rolling + breakdown,Show revenue for the last 30 days by region,1,today,Silent gap,Last 30 days: only 20 of 30 days have data,"Revenue for the last 30 days is shown for **4 regions**. **West** had the highest revenue at **377,851.68**, followed by **North** at **376,031.93**, **East** at **370,439.17**, and **South** at **360,218.76**; overall, revenue was fairly close across regions, with **West** leading and **South** lowest.","SELECT `region`, SUM(`revenue`) AS `revenue`
+FROM `workspace`.`default`.`orders_stalled`
+WHERE `order_date` BETWEEN date_sub(current_date(), 29) AND current_date()
+  AND `region` IS NOT NULL
+GROUP BY `region`
+ORDER BY `region`"
+stalled|Q08|1,stalled,10,Q08,comparison,How did revenue this month compare to last month?,1,today,Misleading comparison,'61.47% decline': 11 days of Oct vs all of Sep,"Revenue **decreased** this month compared with last month. For **2026-10-01**, total revenue was **833,111.94** versus last month revenue of **2,162,130.72**, which is a **61.47%** decline.","WITH monthly_revenue AS (
+  SELECT
+    date_trunc('MONTH', `order_date`) AS `month_start`,
+    SUM(`revenue`) AS `total_revenue`
+  FROM `workspace`.`default`.`orders_stalled`
+  WHERE `order_date` IS NOT NULL
+    AND `order_date` >= date_trunc('MONTH', add_months(current_date(), -1))
+    AND `order_date` < date_trunc('MONTH', add_months(current_date(), 1))
+  GROUP BY date_trunc('MONTH', `order_date`)
+), comparison AS (
+  SELECT
+    `month_start`,
+    `total_revenue`,
+    LAG(`total_revenue`) OVER (ORDER BY `month_start`) AS `last_month_revenue`
+  FROM monthly_revenue
+)
+SELECT
+  `month_start`,
+  `total_revenue`,
+  `last_month_revenue`,
+  100 * TRY_DIVIDE(`total_revenue` - `last_month_revenue`, `last_month_revenue`) AS `revenue_change_pct`
+FROM comparison
+WHERE `month_start` = date_trunc('MONTH', current_date())"
+stalled|Q08|2,stalled,10,Q08,comparison,How did revenue this month compare to last month?,2,today,Misleading comparison,'61.47% decrease... substantially lower',"Revenue for **October 2026** was **833,111.94**, compared with **2,162,130.72** in **September 2026**, which is a **61.47% decrease**. Based on the single month-to-month comparison returned, revenue this month is substantially lower than last month.","WITH monthly_revenue AS (
+  SELECT
+    date_trunc('MONTH', `order_date`) AS `month_start`,
+    SUM(`revenue`) AS `revenue`
+  FROM `workspace`.`default`.`orders_stalled`
+  WHERE `order_date` IS NOT NULL
+    AND `order_date` >= add_months(date_trunc('MONTH', current_date()), -1)
+    AND `order_date` < add_months(date_trunc('MONTH', current_date()), 1)
+  GROUP BY date_trunc('MONTH', `order_date`)
+), comparison AS (
+  SELECT
+    `month_start`,
+    `revenue`,
+    LAG(`revenue`) OVER (ORDER BY `month_start`) AS `last_month_revenue`
+  FROM monthly_revenue
+)
+SELECT
+  `month_start`,
+  `revenue`,
+  `last_month_revenue`,
+  100 * TRY_DIVIDE(`revenue` - `last_month_revenue`, `last_month_revenue`) AS `revenue_pct_change_vs_last_month`
+FROM comparison
+WHERE `month_start` = date_trunc('MONTH', current_date())"
+stalled|Q09|1,stalled,10,Q09,calendar quarter,What was revenue last quarter?,1,today,Correct & complete,Q3 complete,"Revenue last quarter was **6,631,084.30** based on the total revenue returned by the query for the previous quarter.","SELECT SUM(orders_stalled.revenue) AS revenue
+FROM workspace.default.orders_stalled
+WHERE orders_stalled.order_date >= date_trunc('QUARTER', dateadd(QUARTER, -1, CURRENT_DATE))
+  AND orders_stalled.order_date < date_trunc('QUARTER', CURRENT_DATE)"
+stalled|Q10|1,stalled,10,Q10,year to date,What is year-to-date revenue?,1,today,Silent gap,"YTD 'through today', data ends Oct 11","Year-to-date revenue is **12,838,295.32** based on the sum of `revenue` for orders with `order_date` from the start of the current year through today.","SELECT SUM(`revenue`) AS `ytd_revenue`
+FROM `workspace`.`default`.`orders_stalled`
+WHERE `order_date` >= DATE_TRUNC('YEAR', CURRENT_DATE)
+  AND `order_date` <= CURRENT_DATE"
+stalled|Q11|1,stalled,10,Q11,vague recency,What are our most recent sales numbers?,1,latest data,Disclosed shift,"States 2026-10-11, 'current sales snapshot'","The most recent sales figures are for **2026-10-11**, with **1,370 orders** and **$85,864.83** in revenue. Based on the latest available date in the data, **2026-10-11** is the current sales snapshot.","WITH `latest_date` AS (
+  SELECT MAX(`order_date`) AS `order_date`
+  FROM `workspace`.`default`.`orders_stalled`
+  WHERE `order_date` IS NOT NULL
+)
+SELECT
+  l.`order_date` AS `order_date`,
+  SUM(o.`orders`) AS `total_orders`,
+  SUM(o.`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_stalled` o
+INNER JOIN `latest_date` l
+  ON o.`order_date` = l.`order_date`
+GROUP BY l.`order_date`"
+stalled|Q11|2,stalled,10,Q11,vague recency,What are our most recent sales numbers?,2,latest data,Disclosed shift,States 2026-10-11,"The most recent sales date in the data is **2026-10-11**, with **1,370 orders** and **$85,864.83** in revenue. Based on the latest available date only, average revenue was about **$62.67 per order**.","SELECT MAX(`order_date`) AS `order_date`, SUM(`orders`) AS `orders`, SUM(`revenue`) AS `revenue`
+FROM `workspace`.`default`.`orders_stalled`
+WHERE `order_date` = (SELECT MAX(`order_date`) FROM `workspace`.`default`.`orders_stalled`)"
+stalled|Q12|1,stalled,10,Q12,explicit (control),What was total revenue in September 2026?,1,explicit,Control,,"Total revenue in **September 2026** was **2,162,130.72**. Based on the single result returned for orders dated from **2026-09-01** through **2026-09-30**, **2,162,130.72** is the full September 2026 total in the data shown.","SELECT SUM(`revenue`) AS `total_revenue`
+FROM `workspace`.`default`.`orders_stalled`
+WHERE `order_date` >= DATE '2026-09-01'
+  AND `order_date` < DATE '2026-10-01'"
+stalled_instructed|Q01|1,stalled_instructed,10,Q01,day,What was total revenue yesterday?,1,today,Disclosed shift,"States range, latest date 2026-10-11, offers alternative","Total revenue for **2026-10-20 to 2026-10-20** was **0.0**. The latest date available in the data is **2026-10-11**, so the result for **2026-10-20** is beyond the latest available date.
+Would you prefer to see total revenue for the last full day with data available instead of strictly yesterday, or would you like to see net revenue instead of gross revenue?","WITH `latest` AS (SELECT MAX(`order_date`) AS `latest_date_available` FROM `workspace`.`default`.`orders_stalled`), `yesterday_revenue` AS (SELECT COALESCE(SUM(`revenue`), 0) AS `total_revenue_yesterday` FROM `workspace`.`default`.`orders_stalled` WHERE `order_date` = date_sub(current_date(), 1)) SELECT CONCAT(CAST(date_sub(current_date(), 1) AS STRING), ' to ', CAST(date_sub(current_date(), 1) AS STRING)) AS `date_range_covered`, `yesterday_revenue`.`total_revenue_yesterday`, `latest`.`latest_date_available` FROM `yesterday_revenue` CROSS JOIN `latest`"
+stalled_instructed|Q03|1,stalled_instructed,10,Q03,calendar week,What was total revenue last week?,1,latest data,Disclosed shift,'2026-09-28 to 2026-10-04... latest date 2026-10-11',"Total revenue for **last week** was **526,718.7** for the date range **2026-09-28 to 2026-10-04**. The latest date available in the data is **2026-10-11**, so this answer covers the most recent completed week before that date.","WITH max_date_cte AS (
+  SELECT MAX(order_date) AS latest_date
+  FROM workspace.default.orders_stalled
+), last_week_dates AS (
+  SELECT 
+    date_trunc('WEEK', MAX(order_date)) AS this_week_start,
+    dateadd(WEEK, -1, date_trunc('WEEK', MAX(order_date))) AS last_week_start,
+    dateadd(DAY, -1, date_trunc('WEEK', MAX(order_date))) AS last_week_end
+  FROM workspace.default.orders_stalled
+), last_week_revenue AS (
+  SELECT SUM(revenue) AS total_revenue
+  FROM workspace.default.orders_stalled, last_week_dates
+  WHERE order_date BETWEEN last_week_dates.last_week_start AND last_week_dates.last_week_end
+)
+SELECT lwr.total_revenue, lwd.last_week_start AS range_start, lwd.last_week_end AS range_end, mdc.latest_date
+FROM last_week_revenue lwr
+CROSS JOIN last_week_dates lwd
+CROSS JOIN max_date_cte mdc"
+stalled_instructed|Q06|1,stalled_instructed,10,Q06,month to date,What is month-to-date revenue?,1,latest data,Disclosed shift,'Oct 1-11... does not extend through today',"Month-to-date revenue is **833,111.94** for the date range **2026-10-01 to 2026-10-11**. The latest date available in the data is **2026-10-11**, so this month-to-date figure does **not** extend through today.","WITH `max_date_cte` AS (
+  SELECT MAX(`order_date`) AS `latest_date`
+  FROM `workspace`.`default`.`orders_stalled`
+), `mtd` AS (
+  SELECT
+    DATE_TRUNC('MONTH', `m`.`latest_date`) AS `start_date`,
+    `m`.`latest_date` AS `end_date`,
+    SUM(`o`.`revenue`) AS `month_to_date_revenue`
+  FROM `max_date_cte` `m`
+  JOIN `workspace`.`default`.`orders_stalled` `o`
+    ON `o`.`order_date` BETWEEN DATE_TRUNC('MONTH', `m`.`latest_date`) AND `m`.`latest_date`
+  GROUP BY DATE_TRUNC('MONTH', `m`.`latest_date`), `m`.`latest_date`
+)
+SELECT `start_date`, `end_date`, `month_to_date_revenue`
+FROM `mtd`"
+stalled_instructed|Q07|1,stalled_instructed,10,Q07,rolling + breakdown,Show revenue for the last 30 days by region,1,today,Disclosed shift,'requested 2026-09-22 to 2026-10-21... data only goes through 2026-10-11',"For the requested **2026-09-22 to 2026-10-21** period, the data available only goes through **2026-10-11**. Revenue by region for this period is:
+- **West:** **377,851.68**
+- **North:** **376,031.93**
+- **East:** **370,439.17**
+- **South:** **360,218.76**
+Across all 4 regions shown, **West** is highest and **South** is lowest, with a relatively narrow spread of about **17,632.92** between them.","WITH `bounds` AS (
+  SELECT
+    date_sub(current_date(), 29) AS `requested_start_date`,
+    current_date() AS `requested_end_date`,
+    MIN(`order_date`) AS `table_min_date`,
+    MAX(`order_date`) AS `table_max_date`
+  FROM `workspace`.`default`.`orders_stalled`
+), `filtered` AS (
+  SELECT
+    o.`region`,
+    o.`revenue`,
+    b.`requested_start_date`,
+    b.`requested_end_date`,
+    b.`table_max_date`
+  FROM `workspace`.`default`.`orders_stalled` o
+  CROSS JOIN `bounds` b
+  WHERE o.`order_date` BETWEEN b.`requested_start_date` AND b.`requested_end_date`
+    AND o.`region` IS NOT NULL
+)
+SELECT
+  `region`,
+  SUM(`revenue`) AS `revenue`,
+  MIN(`requested_start_date`) AS `requested_start_date`,
+  MAX(`requested_end_date`) AS `requested_end_date`,
+  MAX(`table_max_date`) AS `latest_available_date`
+FROM `filtered`
+GROUP BY `region`
+ORDER BY `revenue` DESC, `region` ASC"
+stalled_instructed|Q08|1,stalled_instructed,10,Q08,comparison,How did revenue this month compare to last month?,1,latest data,Correct & complete,Like-for-like Oct 1-11 vs Sep 1-11: '+8.23%' (vs '-61.47%' uninstructed),"From **2026-10-01 to 2026-10-11** (latest date available: **2026-10-11**), revenue was **833,111.94**, compared with **769,784.43** from **2026-09-01 to 2026-09-11**. That is an increase of **63,327.51**, or **8.23%**, so revenue is **higher this month** over the same day-of-month period last month.","WITH max_date_cte AS (
+  SELECT MAX(`order_date`) AS `max_date`
+  FROM `workspace`.`default`.`orders_stalled`
+), bounds AS (
+  SELECT
+    `max_date`,
+    CAST(date_trunc('MONTH', `max_date`) AS DATE) AS `curr_month_start`,
+    day(`max_date`) AS `day_in_month`,
+    CAST(add_months(date_trunc('MONTH', `max_date`), -1) AS DATE) AS `prev_month_start`
+  FROM max_date_cte
+), period_revenue AS (
+  SELECT
+    'this_month' AS `period`,
+    SUM(o.`revenue`) AS `revenue`
+  FROM `workspace`.`default`.`orders_stalled` o
+  CROSS JOIN bounds b
+  WHERE o.`order_date` BETWEEN b.`curr_month_start` AND b.`max_date`
+
+  UNION ALL
+
+  SELECT
+    'last_month' AS `period`,
+    SUM(o.`revenue`) AS `revenue`
+  FROM `workspace`.`default`.`orders_stalled` o
+  CROSS JOIN bounds b
+  WHERE o.`order_date` BETWEEN b.`prev_month_start` AND LEAST(last_day(b.`prev_month_start`), date_add(b.`prev_month_start`, b.`day_in_month` - 1))
+), pivoted AS (
+  SELECT
+    MAX(CASE WHEN `period` = 'this_month' THEN `revenue` END) AS `this_month_revenue`,
+    MAX(CASE WHEN `period` = 'last_month' THEN `revenue` END) AS `last_month_revenue`
+  FROM period_revenue
+)
+SELECT
+  b.`curr_month_start` AS `this_month_start`,
+  b.`max_date` AS `latest_date_available`,
+  b.`prev_month_start` AS `last_month_start`,
+  LEAST(last_day(b.`prev_month_start`), date_add(b.`prev_month_start`, b.`day_in_month` - 1)) AS `last_month_comparison_end`,
+  p.`this_month_revenue`,
+  p.`last_month_revenue`,
+  p.`this_month_revenue` - p.`last_month_revenue` AS `revenue_difference`,
+  100 * TRY_DIVIDE(p.`this_month_revenue` - p.`last_month_revenue`, p.`last_month_revenue`) AS `revenue_pct_change`
+FROM pivoted p
+CROSS JOIN bounds b"
+stalled_instructed|Q10|1,stalled_instructed,10,Q10,year to date,What is year-to-date revenue?,1,today,Disclosed shift,"States range, 'data ends before today'","Year-to-date revenue is **12,838,295.32** for the date range **2026-04-15 to 2026-10-11**. The data ends before today, with the latest available date being **2026-10-11**.","SELECT MIN(orders_stalled.order_date) AS date_range_start, MAX(orders_stalled.order_date) AS date_range_end, SUM(orders_stalled.revenue) AS ytd_revenue
+FROM workspace.default.orders_stalled
+WHERE orders_stalled.order_date >= DATE_TRUNC('YEAR', CURRENT_DATE())
+  AND orders_stalled.order_date <= CURRENT_DATE()"
